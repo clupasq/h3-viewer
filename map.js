@@ -17,8 +17,6 @@ const GeoUtils = {
 };
 
 const ZOOM_TO_H3_RES_CORRESPONDENCE = {
-    3: 0,
-    4: 1,
     5: 1,
     6: 2,
     7: 3,
@@ -51,9 +49,8 @@ const getH3ResForMapZoom = (mapZoom) => {
 };
 
 const h3BoundsToPolygon = (lngLatH3Bounds) => {
-    const latLngBounds = lngLatH3Bounds.map(([lng, lat]) => [lat, lng]);
-    latLngBounds.push(latLngBounds[0]); // "close" the polygon
-    return latLngBounds;
+    lngLatH3Bounds.push(lngLatH3Bounds[0]); // "close" the polygon
+    return lngLatH3Bounds;
 };
 
 /**
@@ -108,11 +105,11 @@ var app = new Vue({
             const { _southWest: sw, _northEast: ne} = map.getBounds();
 
             const boundsPolygon =[
-                [ sw.lng, sw.lat ],
-                [ sw.lng, ne.lat ],
-                [ ne.lng, ne.lat ],
-                [ ne.lng, sw.lat ],
-                [ sw.lng, sw.lat ],
+                [ sw.lat, sw.lng ],
+                [ ne.lat, sw.lng ],
+                [ ne.lat, ne.lng ],
+                [ sw.lat, ne.lng ],
+                [ sw.lat, sw.lng ],
             ];
 
             const h3s = h3.polyfill(boundsPolygon, this.currentH3Res);
@@ -160,7 +157,7 @@ var app = new Vue({
 
             let bounds = undefined;
 
-            for ([lng, lat] of h3Boundary) {
+            for ([lat, lng] of h3Boundary) {
                 if (bounds === undefined) {
                     bounds = new L.LatLngBounds([lat, lng], [lat, lng]);
                 } else {
@@ -183,7 +180,7 @@ var app = new Vue({
             map = L.map('mapid');
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                minZoom: 3,
+                minZoom: 5,
                 maxNativeZoom: 19,
                 maxZoom: 24,
                 attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
@@ -192,7 +189,7 @@ var app = new Vue({
 
             const initialLat = queryParams.lat ?? 0;
             const initialLng = queryParams.lng ?? 0;
-            const initialZoom = queryParams.zoom ?? 3;
+            const initialZoom = queryParams.zoom ?? 5;
             map.setView([initialLat, initialLng], initialZoom);
             map.on("zoomend", this.updateMapDisplay);
             map.on("moveend", this.updateMapDisplay);
