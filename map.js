@@ -93,6 +93,19 @@ var app = new Vue({
 
     methods: {
 
+        computeAverageEdgeLengthInMeters: function(vertexLocations) {
+            let totalLength = 0;
+            let edgeCount = 0;
+            for (let i = 1; i < vertexLocations.length; i++) {
+                const [fromLat, fromLng] = vertexLocations[i - 1];
+                const [toLat, toLng] = vertexLocations[i];
+                const edgeDistance = GeoUtils.getDistanceOnEarthInMeters(fromLat, fromLng, toLat, toLng);
+                totalLength += edgeDistance;
+                edgeCount++;
+            }
+            return totalLength / edgeCount;
+        },
+
         updateMapDisplay: function() {
             if (hexLayer) {
                 hexLayer.remove();
@@ -124,9 +137,20 @@ var app = new Vue({
                 const style = isSelected ? { fillColor: "orange" } : {};
 
                 const h3Bounds = h3.h3ToGeoBoundary(h3id);
+                const averageEdgeLength = this.computeAverageEdgeLengthInMeters(h3Bounds);
+                const cellArea = h3.cellArea(h3id, "m2");
+
+                const tooltipText = `
+                Cell ID: <b>${ h3id }</b>
+                <br />
+                Average edge length (m): <b>${ averageEdgeLength.toLocaleString() }</b>
+                <br />
+                Cell area (m^2): <b>${ cellArea.toLocaleString() }</b>
+                `;
+
                 const h3Polygon = L.polygon(h3BoundsToPolygon(h3Bounds), style)
                     .on('click', () => copyToClipboard(h3id))
-                    .bindTooltip(h3id)
+                    .bindTooltip(tooltipText)
                     .addTo(polygonLayer);
 
                 // less SVG, otherwise perf is bad
