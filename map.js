@@ -218,6 +218,13 @@ var app = new Vue({
             map.on("zoomend", this.updateMapDisplay);
             map.on("moveend", this.updateMapDisplay);
 
+            const { h3 } = queryParams;
+            console.log(h3)
+            if (h3) {
+                this.searchH3Id = h3;
+                window.setTimeout(() => this.findH3(), 50);
+            }
+
             this.updateMapDisplay();
         });
     }
