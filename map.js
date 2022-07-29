@@ -125,7 +125,7 @@ var app = new Vue({
                 [ sw.lat, sw.lng ],
             ];
 
-            const h3s = h3.polyfill(boundsPolygon, this.currentH3Res);
+            const h3s = h3.polygonToCells(boundsPolygon, this.currentH3Res);
 
             for (const h3id of h3s) {
 
@@ -136,7 +136,7 @@ var app = new Vue({
 
                 const style = isSelected ? { fillColor: "orange" } : {};
 
-                const h3Bounds = h3.h3ToGeoBoundary(h3id);
+                const h3Bounds = h3.cellToBoundary(h3id);
                 const averageEdgeLength = this.computeAverageEdgeLengthInMeters(h3Bounds);
                 const cellArea = h3.cellArea(h3id, "m2");
 
@@ -174,10 +174,10 @@ var app = new Vue({
         },
 
         findH3: function() {
-            if (!h3.h3IsValid(this.searchH3Id)) {
+            if (!h3.isValidCell(this.searchH3Id)) {
                 return;
             }
-            const h3Boundary = h3.h3ToGeoBoundary(this.searchH3Id);
+            const h3Boundary = h3.cellToBoundary(this.searchH3Id);
 
             let bounds = undefined;
 
@@ -191,7 +191,7 @@ var app = new Vue({
 
             map.fitBounds(bounds);
 
-            const newZoom = H3_RES_TO_ZOOM_CORRESPONDENCE[h3.h3GetResolution(this.searchH3Id)];
+            const newZoom = H3_RES_TO_ZOOM_CORRESPONDENCE[h3.getResolution(this.searchH3Id)];
             map.setZoom(newZoom);
         }
     },
