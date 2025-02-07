@@ -169,7 +169,11 @@ var app = new Vue({
             const [lat, lon] = (this.gotoLatLon || "").split(",").map(Number);
             if (Number.isFinite(lat) && Number.isFinite(lon)
                 && lat <= 90 && lat >= -90 && lon <= 180 && lon >= -180) {
-                map.setView([lat, lon], 16);
+                map.setView(
+                    [lat, lon],
+                    undefined, // don't change zoom level
+                    { animate: true }
+                );
             }
         },
 
