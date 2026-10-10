@@ -267,7 +267,7 @@ var app = new Vue({
       const bounds = L.latLngBounds(southWest, northEast);
       map = L.map("mapid", { maxBounds: bounds });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         minZoom: 4,
         maxNativeZoom: 19,
         maxZoom: 24,
