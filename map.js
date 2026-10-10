@@ -1,276 +1,296 @@
 let map, hexLayer;
 
 const GeoUtils = {
-    EARTH_RADIUS_METERS: 6371000,
+  EARTH_RADIUS_METERS: 6371000,
 
-    radiansToDegrees: (r) => r * 180 / Math.PI,
-    degreesToRadians: (d) => d * Math.PI / 180,
+  radiansToDegrees: (r) => (r * 180) / Math.PI,
+  degreesToRadians: (d) => (d * Math.PI) / 180,
 
-    getDistanceOnEarthInMeters: (lat1, lon1, lat2, lon2) => {
-        const lat1Rad  = GeoUtils.degreesToRadians(lat1);
-        const lat2Rad  = GeoUtils.degreesToRadians(lat2);
-        const lonDelta = GeoUtils.degreesToRadians(lon2 - lon1);
-        const x = Math.sin(lat1Rad) * Math.sin(lat2Rad) +
-            Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.cos(lonDelta);
-        return GeoUtils.EARTH_RADIUS_METERS * Math.acos(Math.max(Math.min(x, 1), -1));
-    }
+  getDistanceOnEarthInMeters: (lat1, lon1, lat2, lon2) => {
+    const lat1Rad = GeoUtils.degreesToRadians(lat1);
+    const lat2Rad = GeoUtils.degreesToRadians(lat2);
+    const lonDelta = GeoUtils.degreesToRadians(lon2 - lon1);
+    const x =
+      Math.sin(lat1Rad) * Math.sin(lat2Rad) +
+      Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.cos(lonDelta);
+    return (
+      GeoUtils.EARTH_RADIUS_METERS * Math.acos(Math.max(Math.min(x, 1), -1))
+    );
+  },
 };
 
 const ZOOM_TO_H3_RES_CORRESPONDENCE = {
-    5: 1,
-    6: 2,
-    7: 3,
-    8: 3,
-    9: 4,
-    10: 5,
-    11: 6,
-    12: 6,
-    13: 7,
-    14: 8,
-    15: 9,
-    16: 9,
-    17: 10,
-    18: 10,
-    19: 11,
-    20: 11,
-    21: 12,
-    22: 13,
-    23: 14,
-    24: 15,
+  5: 1,
+  6: 2,
+  7: 3,
+  8: 3,
+  9: 4,
+  10: 5,
+  11: 6,
+  12: 6,
+  13: 7,
+  14: 8,
+  15: 9,
+  16: 9,
+  17: 10,
+  18: 10,
+  19: 11,
+  20: 11,
+  21: 12,
+  22: 13,
+  23: 14,
+  24: 15,
 };
 
 const H3_RES_TO_ZOOM_CORRESPONDENCE = {};
 for (const [zoom, res] of Object.entries(ZOOM_TO_H3_RES_CORRESPONDENCE)) {
-    H3_RES_TO_ZOOM_CORRESPONDENCE[res] = zoom;
+  H3_RES_TO_ZOOM_CORRESPONDENCE[res] = zoom;
 }
 
 const getH3ResForMapZoom = (mapZoom) => {
-    return ZOOM_TO_H3_RES_CORRESPONDENCE[mapZoom] ?? Math.floor((mapZoom - 1) * 0.7);
+  return (
+    ZOOM_TO_H3_RES_CORRESPONDENCE[mapZoom] ?? Math.floor((mapZoom - 1) * 0.7)
+  );
 };
 
 const h3BoundsToPolygon = (lngLatH3Bounds) => {
-    const coordinates = lngLatH3Bounds.map(c => [c[0], c[1]]);
-    for (let i = 1; i < coordinates.length; i++) {
-        const prev = coordinates[i - 1];
-        const current = coordinates[i];
-        let lngDiff = current[1] - prev[1];
+  const coordinates = lngLatH3Bounds.map((c) => [c[0], c[1]]);
+  for (let i = 1; i < coordinates.length; i++) {
+    const prev = coordinates[i - 1];
+    const current = coordinates[i];
+    let lngDiff = current[1] - prev[1];
 
-        if (lngDiff < -180) {
-            current[1] += 360;
-        } else if (lngDiff > 180) {
-            current[1] -= 360;
-        }
+    if (lngDiff < -180) {
+      current[1] += 360;
+    } else if (lngDiff > 180) {
+      current[1] -= 360;
     }
-    coordinates.push(coordinates[0]); // "close" the polygon
-    return coordinates;
+  }
+  coordinates.push(coordinates[0]); // "close" the polygon
+  return coordinates;
 };
 
 /**
  * Parse the current Query String and return its components as an object.
  */
 const parseQueryString = () => {
-    const queryString = window.location.search;
-    const query = {};
-    const pairs = (queryString[0] === '?' ? queryString.substr(1) : queryString).split('&');
-    for (let i = 0; i < pairs.length; i++) {
-        const pair = pairs[i].split('=');
-        query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
-    }
-    return query;
+  const queryString = window.location.search;
+  const query = {};
+  const pairs = (
+    queryString[0] === "?" ? queryString.substr(1) : queryString
+  ).split("&");
+  for (let i = 0; i < pairs.length; i++) {
+    const pair = pairs[i].split("=");
+    query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || "");
+  }
+  return query;
 };
 
 const queryParams = parseQueryString();
 
 const copyToClipboard = (text) => {
-    const dummy = document.createElement("textarea");
-    document.body.appendChild(dummy);
-    dummy.value = text;
-    dummy.select();
-    document.execCommand("copy");
-    document.body.removeChild(dummy);
+  const dummy = document.createElement("textarea");
+  document.body.appendChild(dummy);
+  dummy.value = text;
+  dummy.select();
+  document.execCommand("copy");
+  document.body.removeChild(dummy);
 };
 
 var app = new Vue({
-    el: "#app",
+  el: "#app",
 
-    data: {
-        searchH3Id: undefined,
-        gotoLatLon: undefined,
-        currentH3Res: undefined,
-        useIntegerFormat: !!queryParams.useIntegerFormat,
+  data: {
+    searchH3Id: undefined,
+    gotoLatLon: undefined,
+    currentH3Res: undefined,
+    useIntegerFormat: !!queryParams.useIntegerFormat,
+  },
 
+  computed: {},
+
+  methods: {
+    h3ToInteger: function (h3id) {
+      return BigInt("0x" + h3id).toString();
     },
 
-    computed: {
+    integerToH3: function (intStr) {
+      return BigInt(intStr).toString(16);
     },
 
-    methods: {
+    isIntegerFormat: function (str) {
+      return /^\d+$/.test(str);
+    },
 
-        h3ToInteger: function(h3id) {
-            return BigInt('0x' + h3id).toString();
-        },
+    normalizeH3Input: function (input) {
+      if (!input) return input;
+      if (this.isIntegerFormat(input)) {
+        return this.integerToH3(input);
+      }
+      return input;
+    },
 
-        integerToH3: function(intStr) {
-            return BigInt(intStr).toString(16);
-        },
+    computeAverageEdgeLengthInMeters: function (vertexLocations) {
+      let totalLength = 0;
+      let edgeCount = 0;
+      for (let i = 1; i < vertexLocations.length; i++) {
+        const [fromLat, fromLng] = vertexLocations[i - 1];
+        const [toLat, toLng] = vertexLocations[i];
+        const edgeDistance = GeoUtils.getDistanceOnEarthInMeters(
+          fromLat,
+          fromLng,
+          toLat,
+          toLng,
+        );
+        totalLength += edgeDistance;
+        edgeCount++;
+      }
+      return totalLength / edgeCount;
+    },
 
-        isIntegerFormat: function(str) {
-            return /^\d+$/.test(str);
-        },
+    updateMapDisplay: function () {
+      if (hexLayer) {
+        hexLayer.remove();
+      }
 
-        normalizeH3Input: function(input) {
-            if (!input) return input;
-            if (this.isIntegerFormat(input)) {
-                return this.integerToH3(input);
-            }
-            return input;
-        },
+      hexLayer = L.layerGroup().addTo(map);
 
-        computeAverageEdgeLengthInMeters: function(vertexLocations) {
-            let totalLength = 0;
-            let edgeCount = 0;
-            for (let i = 1; i < vertexLocations.length; i++) {
-                const [fromLat, fromLng] = vertexLocations[i - 1];
-                const [toLat, toLng] = vertexLocations[i];
-                const edgeDistance = GeoUtils.getDistanceOnEarthInMeters(fromLat, fromLng, toLat, toLng);
-                totalLength += edgeDistance;
-                edgeCount++;
-            }
-            return totalLength / edgeCount;
-        },
+      const zoom = map.getZoom();
+      this.currentH3Res = getH3ResForMapZoom(zoom);
+      const { _southWest: sw, _northEast: ne } = map.getBounds();
 
-        updateMapDisplay: function() {
-            if (hexLayer) {
-                hexLayer.remove();
-            }
+      const boundsPolygon = [
+        [sw.lat, sw.lng],
+        [ne.lat, sw.lng],
+        [ne.lat, ne.lng],
+        [sw.lat, ne.lng],
+        [sw.lat, sw.lng],
+      ];
 
-            hexLayer = L.layerGroup().addTo(map);
+      const h3s = h3.polygonToCells(boundsPolygon, this.currentH3Res);
 
-            const zoom = map.getZoom();
-            this.currentH3Res = getH3ResForMapZoom(zoom);
-            const { _southWest: sw, _northEast: ne} = map.getBounds();
+      for (const h3id of h3s) {
+        const polygonLayer = L.layerGroup().addTo(hexLayer);
 
-            const boundsPolygon =[
-                [ sw.lat, sw.lng ],
-                [ ne.lat, sw.lng ],
-                [ ne.lat, ne.lng ],
-                [ sw.lat, ne.lng ],
-                [ sw.lat, sw.lng ],
-            ];
+        const isSelected = h3id === this.searchH3Id;
 
-            const h3s = h3.polygonToCells(boundsPolygon, this.currentH3Res);
+        const style = isSelected ? { fillColor: "orange" } : {};
 
-            for (const h3id of h3s) {
+        const h3Bounds = h3.cellToBoundary(h3id);
+        const averageEdgeLength =
+          this.computeAverageEdgeLengthInMeters(h3Bounds);
+        const cellArea = h3.cellArea(h3id, "m2");
+        const h3idInt = this.h3ToInteger(h3id);
 
-                const polygonLayer = L.layerGroup()
-                    .addTo(hexLayer);
-
-                const isSelected = h3id === this.searchH3Id;
-
-                const style = isSelected ? { fillColor: "orange" } : {};
-
-                const h3Bounds = h3.cellToBoundary(h3id);
-                const averageEdgeLength = this.computeAverageEdgeLengthInMeters(h3Bounds);
-                const cellArea = h3.cellArea(h3id, "m2");
-                const h3idInt = this.h3ToInteger(h3id);
-
-                const tooltipText = `
-                Cell ID (str): <b>${ h3id }</b>
+        const tooltipText = `
+                Cell ID (str): <b>${h3id}</b>
                 <br />
-                Cell ID (int): <b>${ h3idInt }</b>
+                Cell ID (int): <b>${h3idInt}</b>
                 <br />
-                Average edge length (m): <b>${ averageEdgeLength.toLocaleString() }</b>
+                Average edge length (m): <b>${averageEdgeLength.toLocaleString()}</b>
                 <br />
-                Cell area (m²): <b>${ cellArea.toLocaleString() }</b>
+                Cell area (m²): <b>${cellArea.toLocaleString()}</b>
                 `;
 
-                const h3Polygon = L.polygon(h3BoundsToPolygon(h3Bounds), style)
-                    .on('click', () => copyToClipboard(this.useIntegerFormat ? h3idInt : h3id))
-                    .bindTooltip(tooltipText)
-                    .addTo(polygonLayer);
+        const h3Polygon = L.polygon(h3BoundsToPolygon(h3Bounds), style)
+          .on("click", () =>
+            copyToClipboard(this.useIntegerFormat ? h3idInt : h3id),
+          )
+          .bindTooltip(tooltipText)
+          .addTo(polygonLayer);
 
-                // less SVG, otherwise perf is bad
-                if (Math.random() > 0.8 || isSelected) {
-                    var svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                    svgElement.setAttribute('xmlns', "http://www.w3.org/2000/svg");
-                    svgElement.setAttribute('viewBox', "0 0 200 200");
-                    svgElement.innerHTML = `<text x="20" y="70" class="h3Text">${h3id}</text>`;
-                    var svgElementBounds = h3Polygon.getBounds();
-                    L.svgOverlay(svgElement, svgElementBounds).addTo(polygonLayer);
-                }
-            }
-        },
-
-        gotoLocation: function() {
-            const [lat, lon] = (this.gotoLatLon || "").split(",").map(Number);
-            if (Number.isFinite(lat) && Number.isFinite(lon)
-                && lat <= 90 && lat >= -90 && lon <= 180 && lon >= -180) {
-                map.setView(
-                    [lat, lon],
-                    undefined, // don't change zoom level
-                    { animate: true }
-                );
-            }
-        },
-
-        findH3: function() {
-            const normalizedId = this.normalizeH3Input(this.searchH3Id);
-            if (!h3.isValidCell(normalizedId)) {
-                return;
-            }
-            this.searchH3Id = normalizedId;
-            const h3Boundary = h3.cellToBoundary(this.searchH3Id);
-
-            let bounds = undefined;
-
-            for ([lat, lng] of h3Boundary) {
-                if (bounds === undefined) {
-                    bounds = new L.LatLngBounds([lat, lng], [lat, lng]);
-                } else {
-                    bounds.extend([lat, lng]);
-                }
-            }
-
-            map.fitBounds(bounds);
-
-            const newZoom = H3_RES_TO_ZOOM_CORRESPONDENCE[h3.getResolution(this.searchH3Id)];
-            map.setZoom(newZoom);
+        // less SVG, otherwise perf is bad
+        if (Math.random() > 0.8 || isSelected) {
+          var svgElement = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg",
+          );
+          svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+          svgElement.setAttribute("viewBox", "0 0 200 200");
+          svgElement.innerHTML = `<text x="20" y="70" class="h3Text">${h3id}</text>`;
+          var svgElementBounds = h3Polygon.getBounds();
+          L.svgOverlay(svgElement, svgElementBounds).addTo(polygonLayer);
         }
+      }
     },
 
-    beforeMount() {
+    gotoLocation: function () {
+      const [lat, lon] = (this.gotoLatLon || "").split(",").map(Number);
+      if (
+        Number.isFinite(lat) &&
+        Number.isFinite(lon) &&
+        lat <= 90 &&
+        lat >= -90 &&
+        lon <= 180 &&
+        lon >= -180
+      ) {
+        map.setView(
+          [lat, lon],
+          undefined, // don't change zoom level
+          { animate: true },
+        );
+      }
     },
 
-    mounted() {
-        document.addEventListener("DOMContentLoaded", () => {
-            const southWest = L.latLng(-90, -179.999);
-            const northEast = L.latLng(90, 179.999);
-            const bounds = L.latLngBounds(southWest, northEast);
-            map = L.map('mapid', { maxBounds: bounds });
+    findH3: function () {
+      const normalizedId = this.normalizeH3Input(this.searchH3Id);
+      if (!h3.isValidCell(normalizedId)) {
+        return;
+      }
+      this.searchH3Id = normalizedId;
+      const h3Boundary = h3.cellToBoundary(this.searchH3Id);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                minZoom: 4,
-                maxNativeZoom: 19,
-                maxZoom: 24,
-                attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
-            }).addTo(map);
-            pointsLayer = L.layerGroup([]).addTo(map);
+      let bounds = undefined;
 
-            const initialLat = queryParams.lat ?? 0;
-            const initialLng = queryParams.lng ?? 0;
-            const initialZoom = queryParams.zoom ?? 5;
-            map.setView([initialLat, initialLng], initialZoom);
-            map.on("zoomend", this.updateMapDisplay);
-            map.on("moveend", this.updateMapDisplay);
+      for ([lat, lng] of h3Boundary) {
+        if (bounds === undefined) {
+          bounds = new L.LatLngBounds([lat, lng], [lat, lng]);
+        } else {
+          bounds.extend([lat, lng]);
+        }
+      }
 
-            const { h3 } = queryParams;
-            console.log(h3)
-            if (h3) {
-                this.searchH3Id = h3;
-                window.setTimeout(() => this.findH3(), 50);
-            }
+      map.fitBounds(bounds);
 
-            this.updateMapDisplay();
-        });
-    }
+      const newZoom =
+        H3_RES_TO_ZOOM_CORRESPONDENCE[h3.getResolution(this.searchH3Id)];
+      map.setZoom(newZoom);
+    },
+  },
+
+  beforeMount() {},
+
+  mounted() {
+    document.addEventListener("DOMContentLoaded", () => {
+      const southWest = L.latLng(-90, -179.999);
+      const northEast = L.latLng(90, 179.999);
+      const bounds = L.latLngBounds(southWest, northEast);
+      map = L.map("mapid", { maxBounds: bounds });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        minZoom: 4,
+        maxNativeZoom: 19,
+        maxZoom: 24,
+        attribution:
+          '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+      }).addTo(map);
+      pointsLayer = L.layerGroup([]).addTo(map);
+
+      const initialLat = queryParams.lat ?? 0;
+      const initialLng = queryParams.lng ?? 0;
+      const initialZoom = queryParams.zoom ?? 5;
+      map.setView([initialLat, initialLng], initialZoom);
+      map.on("zoomend", this.updateMapDisplay);
+      map.on("moveend", this.updateMapDisplay);
+
+      const { h3 } = queryParams;
+      console.log(h3);
+      if (h3) {
+        this.searchH3Id = h3;
+        window.setTimeout(() => this.findH3(), 50);
+      }
+
+      this.updateMapDisplay();
+    });
+  },
 });
